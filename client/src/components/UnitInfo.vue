@@ -1,0 +1,3 @@
+<template>
+    Unit info
+</template>

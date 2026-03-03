@@ -1,0 +1,3 @@
+<template>
+    Log info
+</template>
