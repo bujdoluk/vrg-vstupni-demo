@@ -1,5 +1,5 @@
 <template>
-    <v-card elevation="0">
+    <v-card elevation="0" class="height" variant="outlined">
         <v-card-title>Simulation State</v-card-title>
         <v-card-text>
             <v-btn-toggle>
@@ -22,3 +22,9 @@
         </v-card-text>
     </v-card>
 </template>
+
+<style scoped>
+.height {
+    height: 100%;
+}
+</style>

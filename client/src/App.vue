@@ -1,50 +1,56 @@
 <template>
-  <div class="grid">
-    <div class="map bg-green">
-      <MapItem />
-    </div>
-    <div class="simulation bg-yellow">
-      <SimulationState />
-    </div>
-    <div class="unit bg-yellow">
-      <UnitInfo />
-    </div>
-    <div class="log bg-yellow">
-      <LogInfo />
-    </div>
-  </div>
+  <div>
+    <MenuBar />
+    <DockviewVue
+      style="width:100%;height:calc(100vh - 64px)"
+      @ready="onReady"
+    >
+  </DockviewVue>
+</div>
 </template>
 
 <script setup lang="ts">
-import MapItem from "./components/MapItem.vue";
-import SimulationState from "./components/SimulationState.vue";
-import LogInfo from "./components/LogInfo.vue";
-import UnitInfo from "./components/UnitInfo.vue";
+import MenuBar from "./components/MenuBar.vue";
+import {type DockviewReadyEvent, DockviewVue, themeVisualStudio} from "dockview-vue";
+
+const onReady = (event: DockviewReadyEvent) => {
+  const api = event.api;
+
+  const mapPanel = api.addPanel({
+    id: "map",
+    component: "mapPanel",
+    tabComponent: "mapTab",
+  });
+
+  const simulationPanel = api.addPanel({
+    id: "simulation",
+    component: "simulationStatePanel",
+    tabComponent: "simulationStateTab",
+    position: {
+      referencePanel: mapPanel,
+      direction: "right",
+    },
+  });
+
+  const unitPanel = api.addPanel({
+    id: "unit",
+    component: "unitInfoPanel",
+    tabComponent: "unitInfoTab",
+    position: {
+      referencePanel: simulationPanel,
+      direction: "below",
+    },
+  });
+
+  api.addPanel({
+    id: "log",
+    component: "logPanel",
+    tabComponent: "logInfoTab",
+    position: {
+      referencePanel: unitPanel,
+      direction: "below",
+    },
+  });
+};
+
 </script>
-
-<style scoped>
-.grid {
-  display: grid;
-  grid-template-areas: 
-    "map map map simulation"
-    "map map map unit"
-    "map map map log";
-}
-
-.map {
-  grid-area: map;
-  min-height: 100vh;
-}
-
-.simulation {
-  grid-area: simulation;
-}
-
-.unit {
-  grid-area: unit;
-}
-
-.log {
-  grid-area: log;
-}
-</style>
