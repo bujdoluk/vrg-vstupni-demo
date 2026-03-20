@@ -1,17 +1,13 @@
 <template>
   <div>
     <MenuBar />
-    <DockviewVue
-      style="width:100%;height:calc(100vh - 64px)"
-      @ready="onReady"
-    >
-  </DockviewVue>
-</div>
+    <DockviewVue class="dockview" @ready="onReady" />
+  </div>
 </template>
 
 <script setup lang="ts">
 import MenuBar from "./components/MenuBar.vue";
-import {type DockviewReadyEvent, DockviewVue, themeVisualStudio} from "dockview-vue";
+import {type DockviewReadyEvent, DockviewVue} from "dockview-vue";
 
 const onReady = (event: DockviewReadyEvent) => {
   const api = event.api;
@@ -54,3 +50,11 @@ const onReady = (event: DockviewReadyEvent) => {
 };
 
 </script>
+
+<style scoped>
+.dockview {
+  width: 100%;
+  height: calc(100vh - 32px);
+}
+
+</style>

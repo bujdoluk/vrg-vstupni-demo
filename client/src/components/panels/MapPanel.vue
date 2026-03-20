@@ -1,11 +1,9 @@
 <template>
-  <div id="map" class="map"></div>
+  <div id="map" class="map-view"></div>
 </template>
 
 <script setup>
 import { onMounted } from 'vue';
-
-// OpenLayers imports
 import Map from 'ol/Map';
 import View from 'ol/View';
 import TileLayer from 'ol/layer/Tile';
@@ -29,8 +27,8 @@ onMounted(() => {
 </script>
 
 <style>
-.map {
+.map-view {
   width: 100%;
-  height: 400px;
+  height: 100%;
 }
 </style>

@@ -35,7 +35,7 @@ app.component("mapPanel", MapPanel)
 app.component("simulationStateTab", SimulationStateTab)
 app.component("logInfoTab", LogTab)
 app.component("unitInfoTab", UnitInfoTab)
-app.component("mapTab", MapTab)
+app.component("mapTab", MapTab) 
 
 app.use(createPinia())
 app.use(router)
