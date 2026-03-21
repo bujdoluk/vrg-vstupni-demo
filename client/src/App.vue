@@ -1,13 +1,28 @@
 <template>
   <div>
-    <MenuBar />
-    <DockviewVue class="dockview" @ready="onReady" />
+    <div v-if="!isConnected" class="loading">
+      <v-progress-circular indeterminate color="primary"></v-progress-circular>
+      <p>Connecting to server...</p>
+    </div>
+
+    <div v-else>
+      <MenuBar />
+      <DockviewVue class="dockview" @ready="onReady" />
+      <MeasureDistanceModal />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { onMounted } from "vue";
 import MenuBar from "./components/MenuBar.vue";
-import {type DockviewReadyEvent, DockviewVue} from "dockview-vue";
+import MeasureDistanceModal from "./components/MeasureDistanceModal.vue";
+import { type DockviewReadyEvent, DockviewVue } from "dockview-vue";
+import { useSocketStore } from "./stores/socketStore";
+import { storeToRefs } from 'pinia';
+
+const socketStore = useSocketStore();
+const { isConnected } = storeToRefs(socketStore);
 
 const onReady = (event: DockviewReadyEvent) => {
   const api = event.api;
@@ -16,6 +31,7 @@ const onReady = (event: DockviewReadyEvent) => {
     id: "map",
     component: "mapPanel",
     tabComponent: "mapTab",
+    minimumWidth: 1500
   });
 
   const simulationPanel = api.addPanel({
@@ -49,6 +65,9 @@ const onReady = (event: DockviewReadyEvent) => {
   });
 };
 
+onMounted(() => {
+  socketStore.connect();
+});
 </script>
 
 <style scoped>
@@ -57,4 +76,13 @@ const onReady = (event: DockviewReadyEvent) => {
   height: calc(100vh - 32px);
 }
 
+.loading {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-size: 18px;
+  background-color: #f5f5f5;
+}
 </style>

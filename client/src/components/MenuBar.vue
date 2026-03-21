@@ -5,7 +5,12 @@
                 <v-btn variant="text" class="border-e-md" :rounded="false">
                     File
                 </v-btn>
-                <v-btn variant="text" class="border-e-md" :rounded="false">
+                <v-btn
+                    variant="text"
+                    class="border-e-md"
+                    :rounded="false"
+                    @click="toggleEdit"
+                >
                     Edit
                 </v-btn>
                 <v-btn variant="text" class="border-e-md" :rounded="false">
@@ -18,3 +23,13 @@
         </v-row>
     </v-container>
 </template>
+
+<script setup lang="ts">
+import { useMapStore } from "../stores/mapStore";
+
+const mapStore = useMapStore();
+
+const toggleEdit = () => {
+  mapStore.toggleEditModal();
+};
+</script>
