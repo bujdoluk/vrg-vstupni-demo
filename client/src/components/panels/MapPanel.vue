@@ -16,6 +16,9 @@ import { fromLonLat } from 'ol/proj';
 import { Circle as CircleStyle, Fill, Stroke, Style, Icon } from 'ol/style';
 import Geometry from 'ol/geom/Geometry';
 import { useMapStore } from "../../stores/mapStore";
+import { useLogStore } from '../../stores/logStore';
+
+const logStore = useLogStore();
 
 onMounted(() => {
   const vectorSource = new VectorSource();
@@ -36,10 +39,9 @@ onMounted(() => {
     }),
   });
 
-  // --- Helper to create feature with base style ---
-  const createFeature = (lon: number, lat: number, icon: string) => {
-    const f = new Feature({
-      geometry: new Point(fromLonLat([lon, lat])),
+  const createFeature = (longitude: number, latitude: number, icon: string) => {
+    const feature = new Feature({
+      geometry: new Point(fromLonLat([longitude, latitude])),
     });
 
     const baseStyle = new Style({
@@ -50,11 +52,11 @@ onMounted(() => {
       }),
     });
 
-    f.set('baseStyle', baseStyle);
-    f.set('highlighted', false); // toggle state
-    f.setStyle(baseStyle);
+    feature.set('baseStyle', baseStyle);
+    feature.set('highlighted', false); // toggle state
+    feature.setStyle(baseStyle);
 
-    return f;
+    return feature;
   };
 
   const infantry = createFeature(21.2611, 48.7164, '/infantry-allies.png');
@@ -65,7 +67,6 @@ onMounted(() => {
 
   const view = map.getView();
 
-  // --- Toggle circle highlight on feature ---
   const toggleCircle = (feature: Feature<Geometry>) => {
     const zoom = view.getZoom() || 13;
     const radius = Math.max(10, zoom * 5);
@@ -73,11 +74,9 @@ onMounted(() => {
     const highlighted = feature.get('highlighted');
 
     if (highlighted) {
-      // remove circle
       feature.setStyle(baseStyle);
       feature.set('highlighted', false);
     } else {
-      // add circle
       feature.setStyle([
         new Style({
           image: new CircleStyle({
@@ -97,22 +96,87 @@ onMounted(() => {
   };
 
   const mapStore = useMapStore();
+  let currentlySelectedFeature: Feature<Geometry> | null = null;
 
-  // --- Click handler ---
   map.on('click', (e) => {
-    map.forEachFeatureAtPixel(e.pixel, (feat) => {
-      toggleCircle(feat as Feature<Geometry>);
+    let clickedFeature: Feature<Geometry> | undefined;
 
-      mapStore.setSelectedUnit(feat as Feature<Point>);
-
-      if (mapStore.isEditModalOpen) {
-        mapStore.addFeatureToSelection(feat as Feature<Point>);
+    map.forEachFeatureAtPixel(
+      e.pixel,
+      (feat) => {
+        clickedFeature = feat as Feature<Geometry>;
+        return true;
+      },
+      {
+        hitTolerance: 5, // optional UX improvement
       }
-      return true; // stop after first feature
-    });
+    );
+
+    // =========================
+    // ❌ CLICKED EMPTY SPACE
+    // =========================
+    if (!clickedFeature) {
+      if (!mapStore.isEditModalOpen) {
+        if (currentlySelectedFeature) {
+          const baseStyle = currentlySelectedFeature.get('baseStyle');
+          if (baseStyle) {
+            currentlySelectedFeature.setStyle(baseStyle);
+          }
+          currentlySelectedFeature.set('highlighted', false);
+          currentlySelectedFeature = null;
+        }
+
+        mapStore.clearSelectedUnit();
+      }
+      return;
+    }
+
+    // ✅ TS-safe (guaranteed not undefined here)
+    const feature = clickedFeature;
+
+    // =========================
+    // 🔵 DISTANCE MODE
+    // =========================
+    if (mapStore.isEditModalOpen) {
+      toggleCircle(feature);
+      mapStore.addFeatureToSelection(feature as Feature<Point>);
+      return;
+    }
+
+    // =========================
+    // 🟢 NORMAL MODE
+    // =========================
+
+    // Click same → unselect
+    if (currentlySelectedFeature === feature) {
+      const baseStyle = feature.get('baseStyle');
+      if (baseStyle) {
+        feature.setStyle(baseStyle);
+      }
+      feature.set('highlighted', false);
+
+      currentlySelectedFeature = null;
+      mapStore.clearSelectedUnit();
+      return;
+    }
+
+    // Unselect previous
+    if (currentlySelectedFeature) {
+      const baseStyle = currentlySelectedFeature.get('baseStyle');
+      if (baseStyle) {
+        currentlySelectedFeature.setStyle(baseStyle);
+      }
+      currentlySelectedFeature.set('highlighted', false);
+    }
+
+    // Select new
+    toggleCircle(feature);
+    currentlySelectedFeature = feature;
+
+    mapStore.setSelectedUnit(feature as Feature<Point>);
+    logStore.addLog(`Entity ${feature.get('callsign') || 'Unknown'} selected`);
   });
 
-  // --- Update circle radius on zoom ---
   view.on('change:resolution', () => {
     vectorSource.getFeatures().forEach((f) => {
       if (f.get('highlighted')) {

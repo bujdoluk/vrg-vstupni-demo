@@ -3,7 +3,7 @@
         <v-row align="center">
             <v-col cols="2">
                 <v-btn variant="text" class="border-e-md" :rounded="false">
-                    File
+                    {{ t('file') }}
                 </v-btn>
                 <v-btn
                     variant="text"
@@ -11,13 +11,13 @@
                     :rounded="false"
                     @click="toggleEdit"
                 >
-                    Edit
+                    {{ t('edit') }}
                 </v-btn>
                 <v-btn variant="text" class="border-e-md" :rounded="false">
-                    View
+                    {{ t('view') }}
                 </v-btn>
                 <v-btn variant="text" :rounded="false">
-                    ...
+                    {{ t('...') }}
                 </v-btn>
             </v-col>
         </v-row>
@@ -26,7 +26,9 @@
 
 <script setup lang="ts">
 import { useMapStore } from "../stores/mapStore";
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const mapStore = useMapStore();
 
 const toggleEdit = () => {

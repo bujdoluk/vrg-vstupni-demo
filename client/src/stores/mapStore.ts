@@ -11,12 +11,15 @@ export const useMapStore = defineStore('map', () => {
   const distance = ref<number | null>(null);
   const selectionError = ref<string | null>(null);
 
-  // Unit info
   const selectedUnit = ref<{
     type: string;
     callsign: string;
     position: string;
     task: string;
+    affiliation: string;
+    speed: number;
+    damage: string;
+    ammunition: string;
   } | null>(null);
 
   const toggleEditModal = () => {
@@ -45,6 +48,10 @@ export const useMapStore = defineStore('map', () => {
     selectedFeatures.value = selectedFeatures.value.filter(f => f !== feature);
     computeDistance();
     selectionError.value = null;
+  };
+
+  const clearSelectedUnit = () => {
+    selectedUnit.value = null;
   };
 
   // Clear all selections & highlight
@@ -89,6 +96,10 @@ export const useMapStore = defineStore('map', () => {
       callsign: feature.get('callsign') || 'N/A',
       position: `${coords[1]!.toFixed(7)}N, ${coords[0]!.toFixed(7)}E`,
       task: feature.get('task') || 'Idle',
+      affiliation: feature.get('affiliation') || 'Unknown',
+      speed: feature.get('speed') || 'Unknown',
+      damage: feature.get('damage') || 'None',
+      ammunition: feature.get('ammution') || 'Unknown',
     };
   };
 
@@ -116,6 +127,7 @@ export const useMapStore = defineStore('map', () => {
     addFeatureToSelection,
     removeFeatureFromSelection,
     clearSelection,
+    clearSelectedUnit,
     setSelectedUnit,
     unselectFeature,
   };

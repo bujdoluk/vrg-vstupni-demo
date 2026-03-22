@@ -7,6 +7,7 @@ import { createVuetify } from 'vuetify';
 import * as components from 'vuetify/components';
 import * as directives from 'vuetify/directives';
 import '@mdi/font/css/materialdesignicons.css';
+import i18n from '../src/plugins/i18n';
 
 import SimulationStatePanel from './components/panels/SimulationStatePanel.vue';
 import LogPanel from './components/panels/LogPanel.vue';
@@ -40,5 +41,6 @@ app.component("mapTab", MapTab)
 app.use(createPinia())
 app.use(router)
 app.use(vuetify)
+app.use(i18n)
 
 app.mount('#app')

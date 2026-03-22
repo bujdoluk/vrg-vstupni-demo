@@ -1,0 +1,23 @@
+{
+    "unitInfo": "Unit Info",
+    "type": "Type",
+    "callsign": "Callsign",
+    "position": "Position",
+    "currentTask": "Current task",
+    "affiliation": "Affiliation",
+    "speed": "Speed",
+    "damage": "Damage",
+    "ammunition": "Ammunition",
+    "clickFeature": "Click a feature on the map to see details.",
+    "simulationState": "Simulation State",
+    "currentTime": "Current time:",
+    "simulationStarted": "Simulation started",
+    "simulationPaused": "Simulation paused",
+    "simulationResumed": "Simulation resumed",
+    "simulationStopped": "Simulation stopped",
+    "file": "File",
+    "edit": "Edit",
+    "view": "View",
+    "...": "...",
+    "logInfo": "Log Info"
+}

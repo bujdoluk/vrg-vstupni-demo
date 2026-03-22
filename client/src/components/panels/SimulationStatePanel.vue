@@ -1,6 +1,6 @@
 <template>
     <v-card elevation="0" class="simulation-state" variant="outlined" :rounded="false">
-        <v-card-title>Simulation State</v-card-title>
+        <v-card-title>{{ t('simulationState') }}</v-card-title>
         <v-card-text class="d-flex justify-center py-2">
             <v-btn-toggle v-model="activeBtn" mandatory>
                 <v-btn variant="outlined" value="play" @click="start">
@@ -15,7 +15,7 @@
             </v-btn-toggle>
         </v-card-text>
         <v-card-text class="py-2 text-center">
-            Current time:
+            {{ t('currentTime') }}
         </v-card-text>
         <v-card-text class="py-2 text-display-large text-center font-weight-bold">
             {{ formattedTime }}
@@ -25,10 +25,14 @@
  
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue';
+import { useLogStore } from '../../stores/logStore';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
+const logStore = useLogStore();
 const activeBtn = ref<string>('');
 const time = ref<number>(0);
-let timer: ReturnType<typeof setInterval> | null = null;
+let timer: number | null = null;
 
 const formattedTime = computed(() => {
   const hours = Math.floor(time.value / 3600).toString().padStart(2, '0');
@@ -43,6 +47,7 @@ const start = (): void => {
         time.value += 1;
     }, 1000);
     activeBtn.value = 'play';
+    logStore.addLog(t('simulationStarted'));
 };
 
 const togglePause = (): void => {
@@ -50,9 +55,11 @@ const togglePause = (): void => {
     clearInterval(timer);
     timer = null;
     activeBtn.value = 'pause';
+    logStore.addLog(t('simulationPaused'));
   } else {
     timer = setInterval(() => time.value += 1, 1000);
     activeBtn.value = 'play';
+    logStore.addLog(t('simulationResumed'));
   }
 };
 
@@ -61,6 +68,7 @@ const stop = (): void => {
     timer = null;
     time.value = 0;
     activeBtn.value = 'stop';
+    logStore.addLog(t('simulationStopped'));
 };
 
 onUnmounted((): void => {
