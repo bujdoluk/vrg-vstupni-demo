@@ -1,13 +1,19 @@
 <template>
   <div>
-    <div v-if="!isConnected" class="loading">
-      <v-progress-circular indeterminate color="primary"></v-progress-circular>
-      <p>Connecting to server...</p>
+    <div 
+      v-if="!isConnected" 
+      class="loading"
+    >
+      <v-progress-circular indeterminate></v-progress-circular>
+      <p>{{ t('connecting') }}</p>
     </div>
 
     <div v-else>
       <MenuBar />
-      <DockviewVue class="dockview" @ready="onReady" />
+      <DockviewVue 
+        class="dockview" 
+        @ready="onReady" 
+      />
       <MeasureDistanceModal />
     </div>
   </div>
@@ -20,18 +26,19 @@ import MeasureDistanceModal from "./components/MeasureDistanceModal.vue";
 import { type DockviewReadyEvent, DockviewVue } from "dockview-vue";
 import { useSocketStore } from "./stores/socketStore";
 import { storeToRefs } from 'pinia';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const socketStore = useSocketStore();
 const { isConnected } = storeToRefs(socketStore);
 
-const onReady = (event: DockviewReadyEvent) => {
+const onReady = (event: DockviewReadyEvent): void => {
   const api = event.api;
 
   const mapPanel = api.addPanel({
     id: "map",
     component: "mapPanel",
     tabComponent: "mapTab",
-    minimumWidth: 1500
   });
 
   const simulationPanel = api.addPanel({
@@ -54,7 +61,7 @@ const onReady = (event: DockviewReadyEvent) => {
     },
   });
 
-  api.addPanel({
+  const logPanel = api.addPanel({
     id: "log",
     component: "logPanel",
     tabComponent: "logInfoTab",
@@ -82,7 +89,6 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
   height: 100vh;
-  font-size: 18px;
-  background-color: #f5f5f5;
+  background-color: white;
 }
 </style>

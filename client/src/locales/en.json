@@ -8,7 +8,7 @@
     "speed": "Speed",
     "damage": "Damage",
     "ammunition": "Ammunition",
-    "clickFeature": "Click a feature on the map to see details.",
+    "clickFeature": "Click a feature on the map to see unit details.",
     "simulationState": "Simulation State",
     "currentTime": "Current time:",
     "simulationStarted": "Simulation started",
@@ -18,6 +18,12 @@
     "file": "File",
     "edit": "Edit",
     "view": "View",
-    "...": "...",
-    "logInfo": "Log Info"
+    "logInfo": "Log Info",
+    "connecting": "Connecting ...",
+    "log": "Log",
+    "map": "Map",
+    "measureTitle": "Measure Distance",
+    "distance": "Distance: {distance} km",
+    "measurmentInfo": "Click 2 features on the map to measure distance.",
+    "featureSelected": "1 feature selected. Click another feature to measure distance."
 }

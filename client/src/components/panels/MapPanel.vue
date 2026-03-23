@@ -1,5 +1,8 @@
 <template>
-  <div id="map" class="map-view border"></div>
+  <div 
+    id="map" 
+    class="map-view border">
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -20,7 +23,7 @@ import { useLogStore } from '../../stores/logStore';
 
 const logStore = useLogStore();
 
-onMounted(() => {
+const createMap = () => {
   const vectorSource = new VectorSource();
 
   const vectorLayer = new VectorLayer({
@@ -39,7 +42,10 @@ onMounted(() => {
     }),
   });
 
-  const createFeature = (longitude: number, latitude: number, icon: string) => {
+  return { map, vectorLayer, vectorSource };
+};
+
+const createFeature = (longitude: number, latitude: number, icon: string): Feature => {
     const feature = new Feature({
       geometry: new Point(fromLonLat([longitude, latitude])),
     });
@@ -53,47 +59,53 @@ onMounted(() => {
     });
 
     feature.set('baseStyle', baseStyle);
-    feature.set('highlighted', false); // toggle state
+    feature.set('highlighted', false); 
     feature.setStyle(baseStyle);
 
     return feature;
-  };
+};
 
-  const infantry = createFeature(21.2611, 48.7164, '/infantry-allies.png');
-  const enemy = createFeature(21.2611, 48.7264, '/infantry-enemy.png');
-  const air = createFeature(21.2511, 48.7064, '/air-defence-allies.png');
+const toggleCircle = (view: View, feature: Feature<Geometry>) => {
+  const zoom = view.getZoom() || 13;
+  const radius = Math.max(10, zoom * 5);
+  const baseStyle = feature.get('baseStyle');
+  const highlighted = feature.get('highlighted');
 
-  vectorSource.addFeatures([infantry, enemy, air]);
-
-  const view = map.getView();
-
-  const toggleCircle = (feature: Feature<Geometry>) => {
-    const zoom = view.getZoom() || 13;
-    const radius = Math.max(10, zoom * 5);
-    const baseStyle = feature.get('baseStyle');
-    const highlighted = feature.get('highlighted');
-
-    if (highlighted) {
-      feature.setStyle(baseStyle);
-      feature.set('highlighted', false);
-    } else {
-      feature.setStyle([
-        new Style({
-          image: new CircleStyle({
-            radius,
-            fill: new Fill({ color: 'rgba(0, 0, 255, 0.1)' }),
-            stroke: new Stroke({
-              color: 'orange',
-              width: 2,
-              lineDash: [6, 4],
-            }),
+  if (highlighted) {
+    feature.setStyle(baseStyle);
+    feature.set('highlighted', false);
+  } else {
+    feature.setStyle([
+      new Style({
+        image: new CircleStyle({
+          radius,
+          fill: new Fill({ color: 'rgba(0, 0, 255, 0.1)' }),
+          stroke: new Stroke({
+            color: 'orange',
+            width: 2,
+            lineDash: [6, 4],
           }),
         }),
-        baseStyle,
-      ]);
-      feature.set('highlighted', true);
-    }
-  };
+      }),
+      baseStyle,
+    ]);
+    feature.set('highlighted', true);
+  }
+};
+
+const createView = (map: Map) => {
+  const view = map.getView();
+  return { view };
+};
+
+onMounted(() => {
+  const { map, vectorSource } = createMap();
+  const { view } = createView(map);
+
+  const infantry = createFeature(21.2611, 48.7164, '/infantry-allies.png');
+  const enemyInfantry = createFeature(21.2611, 48.7264, '/infantry-enemy.png');
+  const airDefence = createFeature(21.2511, 48.7064, '/air-defence-allies.png');
+  vectorSource.addFeatures([infantry, enemyInfantry, airDefence]);
 
   const mapStore = useMapStore();
   let currentlySelectedFeature: Feature<Geometry> | null = null;
@@ -116,7 +128,7 @@ onMounted(() => {
     // ❌ CLICKED EMPTY SPACE
     // =========================
     if (!clickedFeature) {
-      if (!mapStore.isEditModalOpen) {
+      if (!mapStore.isOpen) {
         if (currentlySelectedFeature) {
           const baseStyle = currentlySelectedFeature.get('baseStyle');
           if (baseStyle) {
@@ -137,8 +149,8 @@ onMounted(() => {
     // =========================
     // 🔵 DISTANCE MODE
     // =========================
-    if (mapStore.isEditModalOpen) {
-      toggleCircle(feature);
+    if (mapStore.isOpen) {
+      toggleCircle(view, feature);
       mapStore.addFeatureToSelection(feature as Feature<Point>);
       return;
     }
@@ -170,11 +182,11 @@ onMounted(() => {
     }
 
     // Select new
-    toggleCircle(feature);
+    toggleCircle(view, feature);
     currentlySelectedFeature = feature;
 
     mapStore.setSelectedUnit(feature as Feature<Point>);
-    logStore.addLog(`Entity ${feature.get('callsign') || 'Unknown'} selected`);
+    logStore.add(`Entity ${feature.get('callsign') || 'Unknown'} selected`);
   });
 
   view.on('change:resolution', () => {

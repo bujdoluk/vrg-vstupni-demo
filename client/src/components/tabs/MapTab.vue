@@ -1,10 +1,9 @@
-<script setup lang="ts">
-</script>
-
 <template>
-  <div>Map</div>
+  <div>{{ t('map') }}</div>
 </template>
 
-<style scoped>
+<script setup lang="ts">
+import { useI18n } from 'vue-i18n';
 
-</style>
+const { t } = useI18n();
+</script>

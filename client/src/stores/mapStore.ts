@@ -4,57 +4,44 @@ import { Feature } from 'ol';
 import Point from 'ol/geom/Point';
 import { toLonLat } from 'ol/proj';
 import { getDistance } from 'ol/sphere';
+import type { Unit } from '@/types';
 
 export const useMapStore = defineStore('map', () => {
-  const isEditModalOpen = ref(false);
+  const isOpen = ref<boolean>(false);
   const selectedFeatures = ref<Feature<Point>[]>([]);
   const distance = ref<number | null>(null);
-  const selectionError = ref<string | null>(null);
+  const error = ref<string | null>(null);
+  const selectedUnit = ref<Unit | null>(null);
 
-  const selectedUnit = ref<{
-    type: string;
-    callsign: string;
-    position: string;
-    task: string;
-    affiliation: string;
-    speed: number;
-    damage: string;
-    ammunition: string;
-  } | null>(null);
-
-  const toggleEditModal = () => {
-    isEditModalOpen.value = !isEditModalOpen.value;
-    if (!isEditModalOpen.value) clearSelection();
+  const toggleEditModal = (): void => {
+    isOpen.value = !isOpen.value;
+    if (!isOpen.value) clearSelection();
   };
 
-  // Add feature to distance selection
   const addFeatureToSelection = (feature: Feature<Point>) => {
-    selectionError.value = null;
+    error.value = null;
 
     if (selectedFeatures.value.includes(feature)) return;
 
     if (selectedFeatures.value.length >= 2) {
-      selectionError.value =
-        'Already 2 features selected. Unselect one to choose another.';
+      error.value = 'Already 2 features selected. Unselect one to choose another.';
       return;
     }
 
     selectedFeatures.value.push(feature);
-    computeDistance();
+    calculateDistance();
   };
 
-  // Remove feature from selection
-  const removeFeatureFromSelection = (feature: Feature<Point>) => {
+  const removeSelected = (feature: Feature<Point>) => {
     selectedFeatures.value = selectedFeatures.value.filter(f => f !== feature);
-    computeDistance();
-    selectionError.value = null;
+    calculateDistance();
+    error.value = null;
   };
 
   const clearSelectedUnit = () => {
     selectedUnit.value = null;
   };
 
-  // Clear all selections & highlight
   const clearSelection = () => {
     selectedFeatures.value.forEach(f => {
       const baseStyle = f.get('baseStyle');
@@ -63,32 +50,32 @@ export const useMapStore = defineStore('map', () => {
 
     selectedFeatures.value = [];
     distance.value = null;
-    selectionError.value = null;
+    error.value = null;
     selectedUnit.value = null;
   };
 
-  // Compute geodesic distance in km
-  const computeDistance = () => {
+  const calculateDistance = (): void => {
     if (selectedFeatures.value.length === 2) {
-      const geom1 = selectedFeatures.value[0]!.getGeometry();
-      const geom2 = selectedFeatures.value[1]!.getGeometry();
-      if (geom1 instanceof Point && geom2 instanceof Point) {
-        const coords1 = geom1.getCoordinates();
-        const coords2 = geom2.getCoordinates();
-        const lonLat1 = toLonLat(coords1);
-        const lonLat2 = toLonLat(coords2);
-        const distanceMeters = getDistance(lonLat1, lonLat2);
-        distance.value = distanceMeters / 1000; // km
-      } else {
-        distance.value = null;
+      if (selectedFeatures.value[0] && selectedFeatures.value[1]) {
+        const geometry1 = selectedFeatures.value[0].getGeometry();
+        const geometry2 = selectedFeatures.value[1].getGeometry();
+        if (geometry1 instanceof Point && geometry2 instanceof Point) {
+          const coordinate1 = geometry1.getCoordinates();
+          const coordinate2 = geometry2.getCoordinates();
+          const lonLat1 = toLonLat(coordinate1);
+          const lonLat2 = toLonLat(coordinate2);
+          const distanceInMeters = getDistance(lonLat1, lonLat2);
+          distance.value = distanceInMeters / 1000; 
+        } else {
+          distance.value = null;
+        }
       }
     } else {
       distance.value = null;
     }
   };
 
-  // Set selected unit info
-  const setSelectedUnit = (feature: Feature<Point>) => {
+  const setSelectedUnit = (feature: Feature<Point>): void => {
     const geom = feature.getGeometry();
     const coords = geom instanceof Point ? toLonLat(geom.getCoordinates()) : [0, 0];
     selectedUnit.value = {
@@ -103,7 +90,6 @@ export const useMapStore = defineStore('map', () => {
     };
   };
 
-  // Unselect a unit feature
   const unselectFeature = (feature: Feature<Point>) => {
     selectedFeatures.value = selectedFeatures.value.filter(f => f !== feature);
 
@@ -114,18 +100,18 @@ export const useMapStore = defineStore('map', () => {
       selectedUnit.value = null;
     }
 
-    computeDistance();
+    calculateDistance();
   };
 
   return {
-    isEditModalOpen,
+    isOpen,
     selectedFeatures,
     distance,
-    selectionError,
+    error,
     selectedUnit,
     toggleEditModal,
     addFeatureToSelection,
-    removeFeatureFromSelection,
+    removeSelected,
     clearSelection,
     clearSelectedUnit,
     setSelectedUnit,

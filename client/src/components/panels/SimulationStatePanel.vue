@@ -1,15 +1,35 @@
 <template>
-    <v-card elevation="0" class="simulation-state" variant="outlined" :rounded="false">
+    <v-card 
+        elevation="0" 
+        class="simulation" 
+        variant="outlined" 
+        :rounded="false"
+    >
         <v-card-title>{{ t('simulationState') }}</v-card-title>
         <v-card-text class="d-flex justify-center py-2">
-            <v-btn-toggle v-model="activeBtn" mandatory>
-                <v-btn variant="outlined" value="play" @click="start">
+            <v-btn-toggle 
+                v-model="simulation" 
+                mandatory
+            >
+                <v-btn 
+                    variant="outlined" 
+                    value="play" 
+                    @click="start"
+                >
                     <v-icon icon="mdi-play" />
                 </v-btn>
-                <v-btn variant="outlined" value="pause" @click="togglePause">
+                <v-btn 
+                    variant="outlined" 
+                    value="pause" 
+                    @click="togglePause"
+                >
                     <v-icon icon="mdi-play-pause"></v-icon>
                 </v-btn>
-                <v-btn variant="outlined" value="stop" @click="stop">
+                <v-btn 
+                    variant="outlined" 
+                    value="stop" 
+                    @click="stop"
+                >
                     <v-icon icon="mdi-stop"></v-icon>
                 </v-btn>
             </v-btn-toggle>
@@ -30,7 +50,7 @@ import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 const logStore = useLogStore();
-const activeBtn = ref<string>('');
+const simulation = ref<string>('');
 const time = ref<number>(0);
 let timer: number | null = null;
 
@@ -46,20 +66,20 @@ const start = (): void => {
     timer = setInterval(() => {
         time.value += 1;
     }, 1000);
-    activeBtn.value = 'play';
-    logStore.addLog(t('simulationStarted'));
+    simulation.value = 'play';
+    logStore.add(t('simulationStarted'));
 };
 
 const togglePause = (): void => {
   if (timer) {
     clearInterval(timer);
     timer = null;
-    activeBtn.value = 'pause';
-    logStore.addLog(t('simulationPaused'));
+    simulation.value = 'pause';
+    logStore.add(t('simulationPaused'));
   } else {
     timer = setInterval(() => time.value += 1, 1000);
-    activeBtn.value = 'play';
-    logStore.addLog(t('simulationResumed'));
+    simulation.value = 'play';
+    logStore.add(t('simulationResumed'));
   }
 };
 
@@ -67,8 +87,8 @@ const stop = (): void => {
     if (timer) clearInterval(timer);
     timer = null;
     time.value = 0;
-    activeBtn.value = 'stop';
-    logStore.addLog(t('simulationStopped'));
+    simulation.value = 'stop';
+    logStore.add(t('simulationStopped'));
 };
 
 onUnmounted((): void => {
@@ -78,7 +98,7 @@ onUnmounted((): void => {
 </script>
 
 <style scoped>
-.simulation-state {
+.simulation {
     height: 100%;
     background-color: white;
 }

@@ -2,21 +2,21 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
 export const useLogStore = defineStore('log', () => {
-  const logs = ref<string[]>([]);
+  const logs = ref<Array<string>>([]);
 
-  const addLog = (message: string) => {
+  const add = (message: string): void => {
     const now = new Date();
     const timestamp = now.toTimeString().split(' ')[0]; 
     logs.value.push(`[${timestamp}] ${message}`);
   };
 
-  const clearLogs = () => {
+  const clear = (): void => {
     logs.value = [];
   };
 
   return {
     logs,
-    addLog,
-    clearLogs,
+    add,
+    clear,
   };
 });

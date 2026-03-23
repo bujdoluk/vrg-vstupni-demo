@@ -1,66 +1,78 @@
 <template>
   <v-sheet
-    v-if="store.isEditModalOpen"
+    v-if="isOpen"
     elevation="4"
-    class="floating-modal pa-4"
+    class="container pa-4"
   >
-    <div class="modal-header">
-      <span>Measure Distance</span>
-      <v-btn icon small @click="closeModal">
-        <v-icon>mdi-close</v-icon>
-      </v-btn>
+    <div class="title">
+      <span>{{ t('measureTitle') }}</span>
+      <v-icon 
+        icon="mdi-close" 
+        @click="onClose"
+      >
+      </v-icon>
     </div>
-    <div class="modal-body">
-      <div v-if="store.distance !== null">
-        Distance: {{ store.distance.toFixed(2) }} km
+    <div>
+      <div v-if="distance !== null">
+          {{ t('distance', { distance: distance.toFixed(2) }) }}
       </div>
 
-      <div v-else-if="store.selectedFeatures.length === 1">
-        1 feature selected. Click another feature to measure distance.
+      <div v-else-if="featureSelected">
+        {{ t('featureSelected') }}
       </div>
 
       <div v-else>
-        Click 2 features on the map to measure distance.
+        {{ t('measurmentInfo') }}
       </div>
 
-      <div v-if="store.selectionError" class="error-msg">
-        {{ store.selectionError }}
+      <div 
+        v-if="error" 
+        class="error"
+      >
+        {{ error }}
       </div>
     </div>
   </v-sheet>
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
 import { useMapStore } from "../stores/mapStore";
-const store = useMapStore();
+import { useI18n } from 'vue-i18n';
+import { computed } from "vue";
 
-const closeModal = () => {
-  store.clearSelection(); // remove selected features & circles
-  store.toggleEditModal(); // hide modal
+const { t } = useI18n();
+const mapStore = useMapStore();
+const { isOpen, error, selectedFeatures, distance } = storeToRefs(mapStore);
+
+const featureSelected = computed(() => selectedFeatures.value.length === 1);
+
+const onClose = (): void => {
+  mapStore.clearSelection(); 
+  mapStore.toggleEditModal(); 
 };
+
 </script>
 
 <style scoped>
-.floating-modal {
+.container {
   position: absolute;
   top: 100px;
-  right: 580px;
+  right: 60px;
   width: 280px;
   background-color: white;
   border-radius: 8px;
   z-index: 1000;
 }
-.modal-header {
+.title {
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-weight: bold;
   margin-bottom: 8px;
 }
-.modal-body {
-  font-size: 14px;
-}
-.error-msg {
+
+.error {
   color: red;
   margin-top: 6px;
   font-weight: bold;
