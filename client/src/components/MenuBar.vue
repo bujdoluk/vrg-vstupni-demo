@@ -13,14 +13,32 @@
                 >
                     {{ t('file') }}
                 </v-btn>
-                <v-btn
-                    variant="text"
-                    class="border-e-md"
-                    :rounded="false"
-                    @click="toggleEdit"
-                >
-                    {{ t('edit') }}
-                </v-btn>
+                <v-menu>
+                  <template #activator="{ props }">
+                    <v-btn
+                      v-bind="props"
+                      variant="text"
+                      class="border-e-md"
+                      :rounded="false"
+                    >
+                      {{ t('edit') }}
+                    </v-btn>
+                  </template>
+
+                  <v-list density="compact">
+                    <v-list-item @click="onMeasureDistance">
+                      <v-list-item-title>
+                        {{ t('measureTitle') }}
+                      </v-list-item-title>
+                    </v-list-item>
+
+                    <v-list-item @click="onMoveUnit">
+                      <v-list-item-title>
+                        {{ t('moveUnit') }}
+                      </v-list-item-title>
+                    </v-list-item>
+                  </v-list>
+                </v-menu>
                 <v-btn 
                     variant="text" 
                     class="border-e-md" 
@@ -46,7 +64,12 @@ import { useI18n } from 'vue-i18n';
 const { t } = useI18n();
 const mapStore = useMapStore();
 
-const toggleEdit = (): void => {
+const onMeasureDistance = (): void => {
   mapStore.toggleEditModal();
+};
+
+const onMoveUnit = (): void => {
+  if (!mapStore.selectedUnit) return;
+  mapStore.enableMoveMode();
 };
 </script>

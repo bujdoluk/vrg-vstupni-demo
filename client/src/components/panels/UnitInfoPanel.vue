@@ -1,12 +1,12 @@
 <template>
   <v-card 
     elevation="0" 
-    class="height" 
+    class="unit-card" 
     variant="outlined" 
     :rounded="false"
   >
     <v-card-title>{{ t('unitInfo') }}</v-card-title>
-    <div v-if="selectedUnit">
+    <div v-if="selectedUnit" class="unit-container">
       <v-card-text class="py-0" >
         {{ t('type') }}: {{ selectedUnit.type }}
       </v-card-text>
@@ -33,7 +33,7 @@
       </v-card-text>
     </div>
     <div v-else>
-      <v-card-text class="py-0">
+      <v-card-text class="py-0 unit-container">
         {{ t('clickFeature') }}
       </v-card-text>
     </div>
@@ -51,8 +51,15 @@ const { selectedUnit } = storeToRefs(mapStore);
 </script>
 
 <style scoped>
-.height {
+.unit-card {
   height: 100%;
   background-color: white;
+  display: flex;
+  flex-direction: column;
+}
+
+.unit-container {
+  flex: 1;
+  overflow-y: auto;
 }
 </style>

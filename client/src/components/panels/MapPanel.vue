@@ -1,12 +1,9 @@
 <template>
-  <div 
-    id="map" 
-    class="map-view border">
-  </div>
+  <div id="map" class="map-view border"></div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onMounted, onUnmounted } from 'vue';
 import Map from 'ol/Map';
 import View from 'ol/View';
 import TileLayer from 'ol/layer/Tile';
@@ -15,73 +12,66 @@ import VectorSource from 'ol/source/Vector';
 import OSM from 'ol/source/OSM';
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
+import LineString from 'ol/geom/LineString';
 import { fromLonLat } from 'ol/proj';
 import { Circle as CircleStyle, Fill, Stroke, Style, Icon } from 'ol/style';
 import Geometry from 'ol/geom/Geometry';
-import { useMapStore } from "../../stores/mapStore";
+import { useMapStore } from '../../stores/mapStore';
 import { useLogStore } from '../../stores/logStore';
+import type { MapBrowserEvent } from 'ol';
 
 const logStore = useLogStore();
+const mapStore = useMapStore();
+
+let moveLineFeature: Feature<LineString> | null = null;
+let movePathCoordinates: number[][] = [];
+const vectorSource = new VectorSource();
+const vectorLayer = new VectorLayer({ source: vectorSource });
 
 const createMap = () => {
-  const vectorSource = new VectorSource();
-
-  const vectorLayer = new VectorLayer({
-    source: vectorSource,
-  });
-
   const map = new Map({
     target: 'map',
-    layers: [
-      new TileLayer({ source: new OSM() }),
-      vectorLayer,
-    ],
-    view: new View({
-      center: fromLonLat([21.2611, 48.7164]),
-      zoom: 13,
-    }),
+    layers: [new TileLayer({ source: new OSM() }), vectorLayer],
+    view: new View({ center: fromLonLat([21.2611, 48.7164]), zoom: 13 }),  
+    controls: [],
   });
 
-  return { map, vectorLayer, vectorSource };
+  return { map };
 };
 
 const createFeature = (
-    longitude: number, 
-    latitude: number, 
-    icon: string, 
-    type: string, 
-    callsign: string, 
-    affiliation: string
-  ): Feature => {
-    const feature = new Feature({
-      geometry: new Point(fromLonLat([longitude, latitude])),
-    });
+  longitude: number,
+  latitude: number,
+  icon: string,
+  type: string,
+  callsign: string,
+  affiliation: string
+): Feature<Point> => {
+  const feature = new Feature({ geometry: new Point(fromLonLat([longitude, latitude])) });
+  const initialStyle = new Style({ image: new Icon({ src: icon, scale: 0.08, anchor: [0.5, 0.5] }) });
 
-    const initialStyle = new Style({
-      image: new Icon({
-        src: icon,
-        scale: 0.08,
-        anchor: [0.5, 0.5],
-      }),
-    });
-
-    feature.set('initialStyle', initialStyle);
-    feature.set('circleHighlight', false); 
-    feature.setStyle(initialStyle);
-    feature.set('type', type);
-    feature.set('callsign', callsign);
-    feature.set('affiliation', affiliation);
-
-    return feature;
+  feature.set('initialStyle', initialStyle);
+  feature.set('circleHighlight', false);
+  feature.setStyle(initialStyle);
+  feature.set('type', type);
+  feature.set('callsign', callsign);
+  feature.set('affiliation', affiliation);
+  return feature;
 };
 
-const toggleCircle = (view: View, feature: Feature<Geometry>) => {
+const createMoveLine = (start: number[], end: number[]) => {
+  const line = new Feature({ geometry: new LineString([start, end]) });
+  line.setStyle(new Style({ stroke: new Stroke({ color: 'orange', width: 2, lineDash: [6, 4] }) }));
+  return line;
+};
+
+const toggleCircleHighlight = (view: View, feature: Feature<Geometry>) => {
   const zoom = view.getZoom() || 13;
   const radius = Math.max(10, zoom * 5);
   const initialStyle = feature.get('initialStyle');
-  const circleHighlight = feature.get('circleHighlight');
+  const isHighlighted = feature.get('circleHighlight');
 
-  if (circleHighlight) {
+  if (isHighlighted) {
     feature.setStyle(initialStyle);
     feature.set('circleHighlight', false);
   } else {
@@ -90,11 +80,7 @@ const toggleCircle = (view: View, feature: Feature<Geometry>) => {
         image: new CircleStyle({
           radius,
           fill: new Fill({ color: 'rgba(0, 0, 255, 0.1)' }),
-          stroke: new Stroke({
-            color: 'orange',
-            width: 2,
-            lineDash: [6, 4],
-          }),
+          stroke: new Stroke({ color: 'orange', width: 2, lineDash: [6, 4] }),
         }),
       }),
       initialStyle,
@@ -103,124 +89,130 @@ const toggleCircle = (view: View, feature: Feature<Geometry>) => {
   }
 };
 
-const createView = (map: Map) => {
-  const view = map.getView();
-  return { view };
+const onMapClick = (
+  event: MapBrowserEvent,
+  map: Map,
+  view: View,
+  vectorSource: VectorSource,
+  mapStore: ReturnType<typeof useMapStore>,
+  currentlySelectedFeature: { value: Feature<Geometry> | null }
+) => {
+  let clickedFeature: Feature<Geometry> | undefined;
+
+  if (mapStore.isMoveMode && currentlySelectedFeature.value) {
+    const geometry = currentlySelectedFeature.value.getGeometry();
+    if (!(geometry instanceof Point)) return;
+
+    const clickedPoint = event.coordinate;
+
+    if (movePathCoordinates.length === 0) {
+      const start = geometry.getCoordinates();
+      movePathCoordinates.push(start);
+    }
+
+    movePathCoordinates.push(clickedPoint);
+
+    if (moveLineFeature) {
+      vectorSource.removeFeature(moveLineFeature);
+    }
+
+    moveLineFeature = new Feature({ geometry: new LineString(movePathCoordinates) });
+    moveLineFeature.setStyle(
+      new Style({
+        stroke: new Stroke({ color: 'orange', width: 2, lineDash: [6, 4] }),
+      })
+    );
+
+    vectorSource.addFeature(moveLineFeature);
+    logStore.add(`Move command issued for ${currentlySelectedFeature.value.get('callsign')}`);
+    return;
+  }
+
+  map.forEachFeatureAtPixel(event.pixel, (feature) => {
+    clickedFeature = feature as Feature<Geometry>;
+    return true;
+  }, { hitTolerance: 5 });
+
+  if (!clickedFeature) {
+    if (!mapStore.isOpen) {
+      if (currentlySelectedFeature.value) {
+        const initialStyle = currentlySelectedFeature.value.get('initialStyle');
+        if (initialStyle) currentlySelectedFeature.value.setStyle(initialStyle);
+        currentlySelectedFeature.value.set('circleHighlight', false);
+        currentlySelectedFeature.value = null;
+      }
+      mapStore.clearSelectedUnit();
+    }
+    return;
+  }
+
+  const feature = clickedFeature;
+
+  if (mapStore.isOpen) {
+    toggleCircleHighlight(view, feature);
+    mapStore.addSelectedFeature(feature as Feature<Point>);
+    return;
+  }
+
+  if (currentlySelectedFeature.value === feature) {
+    const initialStyle = feature.get('initialStyle');
+    if (initialStyle) feature.setStyle(initialStyle);
+    feature.set('circleHighlight', false);
+    currentlySelectedFeature.value = null;
+    mapStore.clearSelectedUnit();
+    return;
+  }
+
+  if (currentlySelectedFeature.value) {
+    const prevStyle = currentlySelectedFeature.value.get('initialStyle');
+    if (prevStyle) currentlySelectedFeature.value.setStyle(prevStyle);
+    currentlySelectedFeature.value.set('circleHighlight', false);
+  }
+
+  toggleCircleHighlight(view, feature);
+  currentlySelectedFeature.value = feature;
+
+  movePathCoordinates = [];
+  if (moveLineFeature) {
+    vectorSource.removeFeature(moveLineFeature);
+    moveLineFeature = null;
+  }
+
+  mapStore.setSelectedUnit(feature as Feature<Point>);
+  logStore.add(`Entity ${feature.get('callsign')} selected`);
+};
+
+const onEscape = (event: KeyboardEvent) => {
+  if (event.key !== 'Escape') return;
+
+  if (moveLineFeature) {
+    vectorSource.removeFeature(moveLineFeature);
+    movePathCoordinates = [];
+    moveLineFeature = null;
+  }
+ 
+  mapStore.disableMoveMode();
+  logStore.add('Move command cancelled');
 };
 
 onMounted(() => {
-  const { map, vectorSource } = createMap();
-  const { view } = createView(map);
+  const { map } = createMap();
+  const view = map.getView();
 
-  const infantry = createFeature(21.2611, 48.7164, '/infantry-allies.png', "Infantry", "A1", "Ally");
-  const enemyInfantry = createFeature(21.2611, 48.7264, '/infantry-enemy.png', "Infantry", "A1", "Enemy");
-  const airDefence = createFeature(21.2511, 48.7064, '/air-defence-allies.png', "Air defence", "AD1", "Ally");
+  const selectedFeature = { value: null };
+
+  const infantry = createFeature(21.2611, 48.7164, '/infantry-allies.png', 'Infantry', 'A1', 'Ally');
+  const enemyInfantry = createFeature(21.2611, 48.7264, '/infantry-enemy.png', 'Infantry', 'E1', 'Enemy');
+  const airDefence = createFeature(21.2511, 48.7064, '/air-defence-allies.png', 'Air defence', 'AD1', 'Ally');
   vectorSource.addFeatures([infantry, enemyInfantry, airDefence]);
 
-  const mapStore = useMapStore();
-  let currentlySelectedFeature: Feature<Geometry> | null = null;
+  map.on('click', (event: MapBrowserEvent) => onMapClick(event, map, view, vectorSource, mapStore, selectedFeature));
 
-  map.on('click', (e) => {
-    let clickedFeature: Feature<Geometry> | undefined;
+  window.addEventListener('keydown', onEscape);
+});
 
-    map.forEachFeatureAtPixel(
-      e.pixel,
-      (feat) => {
-        clickedFeature = feat as Feature<Geometry>;
-        return true;
-      },
-      {
-        hitTolerance: 5, // optional UX improvement
-      }
-    );
-
-    // =========================
-    // ❌ CLICKED EMPTY SPACE
-    // =========================
-    if (!clickedFeature) {
-      if (!mapStore.isOpen) {
-        if (currentlySelectedFeature) {
-          const initialStyle = currentlySelectedFeature.get('initialStyle');
-          if (initialStyle) {
-            currentlySelectedFeature.setStyle(initialStyle);
-          }
-          currentlySelectedFeature.set('circleHighlight', false);
-          currentlySelectedFeature = null;
-        }
-
-        mapStore.clearSelectedUnit();
-      }
-      return;
-    }
-
-    const feature = clickedFeature;
-
-    // =========================
-    // 🔵 DISTANCE MODE
-    // =========================
-    if (mapStore.isOpen) {
-      toggleCircle(view, feature);
-      mapStore.addSelectedFeature(feature as Feature<Point>);
-      return;
-    }
-
-    // =========================
-    // 🟢 NORMAL MODE
-    // =========================
-
-    // Click same → unselect
-    if (currentlySelectedFeature === feature) {
-      const initialStyle = feature.get('initialStyle');
-      if (initialStyle) {
-        feature.setStyle(initialStyle);
-      }
-      feature.set('circleHighlight', false);
-
-      currentlySelectedFeature = null;
-      mapStore.clearSelectedUnit();
-      return;
-    }
-
-    // Unselect previous
-    if (currentlySelectedFeature) {
-      const initialStyle = currentlySelectedFeature.get('initialStyle');
-      if (initialStyle) {
-        currentlySelectedFeature.setStyle(initialStyle);
-      }
-      currentlySelectedFeature.set('circleHighlight', false);
-    }
-
-    // Select new
-    toggleCircle(view, feature);
-    currentlySelectedFeature = feature;
-
-    mapStore.setSelectedUnit(feature as Feature<Point>);
-    logStore.add(`Entity ${feature.get('callsign')} selected`);
-  });
-
-  view.on('change:resolution', () => {
-    vectorSource.getFeatures().forEach((feature) => {
-      if (feature.get('circleHighlight')) {
-        const zoom = view.getZoom() || 13;
-        const radius = Math.max(10, zoom * 5);
-        const initialStyle = feature.get('initialStyle');
-        feature.setStyle([
-          new Style({
-            image: new CircleStyle({
-              radius,
-              fill: new Fill({ color: 'rgba(0, 0, 255, 0.1)' }),
-              stroke: new Stroke({
-                color: 'orange',
-                width: 2,
-                lineDash: [6, 4],
-              }),
-            }),
-          }),
-          initialStyle,
-        ]);
-      }
-    });
-  });
+onUnmounted(() => {
+  window.removeEventListener('keydown', onEscape);
 });
 </script>
 

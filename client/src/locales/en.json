@@ -23,6 +23,7 @@
     "log": "Log",
     "map": "Map",
     "measureTitle": "Measure Distance",
+    "moveUnit": "Move unit",
     "distance": "Distance: {distance} km",
     "measurmentInfo": "Click 2 features on the map to measure distance.",
     "featureSelected": "1 feature selected. Click another feature to measure distance."

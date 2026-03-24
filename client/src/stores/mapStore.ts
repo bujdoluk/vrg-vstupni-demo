@@ -9,6 +9,7 @@ import type { Coordinate } from 'ol/coordinate';
 
 export const useMapStore = defineStore('map', () => {
   const isOpen = ref<boolean>(false);
+  const isMoveMode = ref<boolean>(false);
   const selectedFeatures = ref<Feature<Point>[]>([]);
   const distance = ref<number | null>(null);
   const error = ref<string | null>(null);
@@ -34,10 +35,10 @@ export const useMapStore = defineStore('map', () => {
   };
 
   const mapFeatureToUnit = (feature: Feature<Point>): Unit => {
-    const coords = getLonLat(feature);
+    const coordinates = getLonLat(feature);
 
-    const longitude = coords?.[0] ?? 0;
-    const latitude = coords?.[1] ?? 0;
+    const longitude = coordinates?.[0] ?? 0;
+    const latitude = coordinates?.[1] ?? 0;
 
     return {
       type: feature.get('type') ?? 'Unknown',
@@ -58,6 +59,15 @@ export const useMapStore = defineStore('map', () => {
   const toggleEditModal = (): void => {
     isOpen.value = !isOpen.value;
     if (!isOpen.value) clearSelection();
+  };
+
+  const enableMoveMode = (): void => {
+    if (!selectedUnit.value) return;
+    isMoveMode.value = true;
+  };
+
+  const disableMoveMode = (): void => {
+    isMoveMode.value = false;
   };
 
   const addSelectedFeature = (feature: Feature<Point>): void => {
@@ -108,6 +118,9 @@ export const useMapStore = defineStore('map', () => {
 
   return {
     isOpen,
+    isMoveMode,
+    enableMoveMode,
+    disableMoveMode,
     selectedFeatures,
     distance,
     error,
