@@ -5,6 +5,7 @@ import Point from 'ol/geom/Point';
 import { toLonLat } from 'ol/proj';
 import { getDistance } from 'ol/sphere';
 import type { Unit } from '@/types';
+import type { Coordinate } from 'ol/coordinate';
 
 export const useMapStore = defineStore('map', () => {
   const isOpen = ref<boolean>(false);
@@ -13,12 +14,53 @@ export const useMapStore = defineStore('map', () => {
   const error = ref<string | null>(null);
   const selectedUnit = ref<Unit | null>(null);
 
+  const getLonLat = (feature: Feature<Point>): Coordinate | null => {
+    const geometry = feature.getGeometry();
+    if (!(geometry instanceof Point)) return null;
+    return toLonLat(geometry.getCoordinates());
+  };
+
+  const calculateDistance = (): number | null => {
+    if (selectedFeatures.value.length !== 2) return null;
+    const [feature1, feature2] = selectedFeatures.value;
+
+    if (!(feature1 instanceof Feature) || !(feature2 instanceof Feature)) return null;
+    const coordinate1 = getLonLat(feature1);
+    const coordinate2 = getLonLat(feature2);
+
+    if (!coordinate1 || !coordinate2) return null;
+
+    return getDistance(coordinate1, coordinate2) / 1000; 
+  };
+
+  const mapFeatureToUnit = (feature: Feature<Point>): Unit => {
+    const coords = getLonLat(feature);
+
+    const longitude = coords?.[0] ?? 0;
+    const latitude = coords?.[1] ?? 0;
+
+    return {
+      type: feature.get('type') ?? 'Unknown',
+      callsign: feature.get('callsign') ?? 'Unknown',
+      position: `${latitude.toFixed(7)}N, ${longitude.toFixed(7)}E`,
+      task: feature.get('task') ?? 'Idle',
+      affiliation: feature.get('affiliation') ?? 'Unknown',
+      speed: feature.get('speed') ?? 'Unknown',
+      damage: feature.get('damage') ?? 'None',
+      ammunition: feature.get('ammunition') ?? 'Unknown',
+    };
+  };
+
+  const updateDistance = (): void => {
+    distance.value = calculateDistance();
+  };
+
   const toggleEditModal = (): void => {
     isOpen.value = !isOpen.value;
     if (!isOpen.value) clearSelection();
   };
 
-  const addFeatureToSelection = (feature: Feature<Point>) => {
+  const addSelectedFeature = (feature: Feature<Point>): void => {
     error.value = null;
 
     if (selectedFeatures.value.includes(feature)) return;
@@ -29,23 +71,25 @@ export const useMapStore = defineStore('map', () => {
     }
 
     selectedFeatures.value.push(feature);
-    calculateDistance();
+    updateDistance();
   };
 
-  const removeSelected = (feature: Feature<Point>) => {
-    selectedFeatures.value = selectedFeatures.value.filter(f => f !== feature);
-    calculateDistance();
+  const removeFeature = (feature: Feature<Point>): void => {
+    selectedFeatures.value = selectedFeatures.value.filter(selectedFeature => selectedFeature !== feature);
+
+    if (selectedUnit.value?.callsign === feature.get('callsign')) {
+      selectedUnit.value = null;
+    }
+
     error.value = null;
+    updateDistance();
   };
 
-  const clearSelectedUnit = () => {
-    selectedUnit.value = null;
-  };
-
-  const clearSelection = () => {
-    selectedFeatures.value.forEach(f => {
-      const baseStyle = f.get('baseStyle');
-      if (baseStyle) f.setStyle(baseStyle);
+  const clearSelection = (): void => {
+    selectedFeatures.value.forEach(selectedFeature => {
+      const initialStyle = selectedFeature.get('initialStyle');
+      if (initialStyle) selectedFeature.setStyle(initialStyle);
+      selectedFeature.set('circleHighlight', false);
     });
 
     selectedFeatures.value = [];
@@ -54,53 +98,12 @@ export const useMapStore = defineStore('map', () => {
     selectedUnit.value = null;
   };
 
-  const calculateDistance = (): void => {
-    if (selectedFeatures.value.length === 2) {
-      if (selectedFeatures.value[0] && selectedFeatures.value[1]) {
-        const geometry1 = selectedFeatures.value[0].getGeometry();
-        const geometry2 = selectedFeatures.value[1].getGeometry();
-        if (geometry1 instanceof Point && geometry2 instanceof Point) {
-          const coordinate1 = geometry1.getCoordinates();
-          const coordinate2 = geometry2.getCoordinates();
-          const lonLat1 = toLonLat(coordinate1);
-          const lonLat2 = toLonLat(coordinate2);
-          const distanceInMeters = getDistance(lonLat1, lonLat2);
-          distance.value = distanceInMeters / 1000; 
-        } else {
-          distance.value = null;
-        }
-      }
-    } else {
-      distance.value = null;
-    }
+  const clearSelectedUnit = (): void => {
+    selectedUnit.value = null;
   };
 
   const setSelectedUnit = (feature: Feature<Point>): void => {
-    const geom = feature.getGeometry();
-    const coords = geom instanceof Point ? toLonLat(geom.getCoordinates()) : [0, 0];
-    selectedUnit.value = {
-      type: feature.get('type') || 'Unknown',
-      callsign: feature.get('callsign') || 'N/A',
-      position: `${coords[1]!.toFixed(7)}N, ${coords[0]!.toFixed(7)}E`,
-      task: feature.get('task') || 'Idle',
-      affiliation: feature.get('affiliation') || 'Unknown',
-      speed: feature.get('speed') || 'Unknown',
-      damage: feature.get('damage') || 'None',
-      ammunition: feature.get('ammution') || 'Unknown',
-    };
-  };
-
-  const unselectFeature = (feature: Feature<Point>) => {
-    selectedFeatures.value = selectedFeatures.value.filter(f => f !== feature);
-
-    if (
-      selectedUnit.value &&
-      selectedUnit.value.callsign === feature.get('callsign')
-    ) {
-      selectedUnit.value = null;
-    }
-
-    calculateDistance();
+    selectedUnit.value = mapFeatureToUnit(feature);
   };
 
   return {
@@ -110,11 +113,10 @@ export const useMapStore = defineStore('map', () => {
     error,
     selectedUnit,
     toggleEditModal,
-    addFeatureToSelection,
-    removeSelected,
+    addSelectedFeature,
+    removeFeature,
     clearSelection,
     clearSelectedUnit,
     setSelectedUnit,
-    unselectFeature,
   };
 });

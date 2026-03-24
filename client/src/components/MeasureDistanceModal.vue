@@ -62,7 +62,7 @@ const onClose = (): void => {
   width: 280px;
   background-color: white;
   border-radius: 8px;
-  z-index: 1000;
+  z-index: 2;
 }
 .title {
   display: flex;

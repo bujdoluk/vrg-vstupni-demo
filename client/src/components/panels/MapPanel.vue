@@ -45,12 +45,19 @@ const createMap = () => {
   return { map, vectorLayer, vectorSource };
 };
 
-const createFeature = (longitude: number, latitude: number, icon: string): Feature => {
+const createFeature = (
+    longitude: number, 
+    latitude: number, 
+    icon: string, 
+    type: string, 
+    callsign: string, 
+    affiliation: string
+  ): Feature => {
     const feature = new Feature({
       geometry: new Point(fromLonLat([longitude, latitude])),
     });
 
-    const baseStyle = new Style({
+    const initialStyle = new Style({
       image: new Icon({
         src: icon,
         scale: 0.08,
@@ -58,9 +65,12 @@ const createFeature = (longitude: number, latitude: number, icon: string): Featu
       }),
     });
 
-    feature.set('baseStyle', baseStyle);
-    feature.set('highlighted', false); 
-    feature.setStyle(baseStyle);
+    feature.set('initialStyle', initialStyle);
+    feature.set('circleHighlight', false); 
+    feature.setStyle(initialStyle);
+    feature.set('type', type);
+    feature.set('callsign', callsign);
+    feature.set('affiliation', affiliation);
 
     return feature;
 };
@@ -68,12 +78,12 @@ const createFeature = (longitude: number, latitude: number, icon: string): Featu
 const toggleCircle = (view: View, feature: Feature<Geometry>) => {
   const zoom = view.getZoom() || 13;
   const radius = Math.max(10, zoom * 5);
-  const baseStyle = feature.get('baseStyle');
-  const highlighted = feature.get('highlighted');
+  const initialStyle = feature.get('initialStyle');
+  const circleHighlight = feature.get('circleHighlight');
 
-  if (highlighted) {
-    feature.setStyle(baseStyle);
-    feature.set('highlighted', false);
+  if (circleHighlight) {
+    feature.setStyle(initialStyle);
+    feature.set('circleHighlight', false);
   } else {
     feature.setStyle([
       new Style({
@@ -87,9 +97,9 @@ const toggleCircle = (view: View, feature: Feature<Geometry>) => {
           }),
         }),
       }),
-      baseStyle,
+      initialStyle,
     ]);
-    feature.set('highlighted', true);
+    feature.set('circleHighlight', true);
   }
 };
 
@@ -102,9 +112,9 @@ onMounted(() => {
   const { map, vectorSource } = createMap();
   const { view } = createView(map);
 
-  const infantry = createFeature(21.2611, 48.7164, '/infantry-allies.png');
-  const enemyInfantry = createFeature(21.2611, 48.7264, '/infantry-enemy.png');
-  const airDefence = createFeature(21.2511, 48.7064, '/air-defence-allies.png');
+  const infantry = createFeature(21.2611, 48.7164, '/infantry-allies.png', "Infantry", "A1", "Ally");
+  const enemyInfantry = createFeature(21.2611, 48.7264, '/infantry-enemy.png', "Infantry", "A1", "Enemy");
+  const airDefence = createFeature(21.2511, 48.7064, '/air-defence-allies.png', "Air defence", "AD1", "Ally");
   vectorSource.addFeatures([infantry, enemyInfantry, airDefence]);
 
   const mapStore = useMapStore();
@@ -130,11 +140,11 @@ onMounted(() => {
     if (!clickedFeature) {
       if (!mapStore.isOpen) {
         if (currentlySelectedFeature) {
-          const baseStyle = currentlySelectedFeature.get('baseStyle');
-          if (baseStyle) {
-            currentlySelectedFeature.setStyle(baseStyle);
+          const initialStyle = currentlySelectedFeature.get('initialStyle');
+          if (initialStyle) {
+            currentlySelectedFeature.setStyle(initialStyle);
           }
-          currentlySelectedFeature.set('highlighted', false);
+          currentlySelectedFeature.set('circleHighlight', false);
           currentlySelectedFeature = null;
         }
 
@@ -143,7 +153,6 @@ onMounted(() => {
       return;
     }
 
-    // ✅ TS-safe (guaranteed not undefined here)
     const feature = clickedFeature;
 
     // =========================
@@ -151,7 +160,7 @@ onMounted(() => {
     // =========================
     if (mapStore.isOpen) {
       toggleCircle(view, feature);
-      mapStore.addFeatureToSelection(feature as Feature<Point>);
+      mapStore.addSelectedFeature(feature as Feature<Point>);
       return;
     }
 
@@ -161,11 +170,11 @@ onMounted(() => {
 
     // Click same → unselect
     if (currentlySelectedFeature === feature) {
-      const baseStyle = feature.get('baseStyle');
-      if (baseStyle) {
-        feature.setStyle(baseStyle);
+      const initialStyle = feature.get('initialStyle');
+      if (initialStyle) {
+        feature.setStyle(initialStyle);
       }
-      feature.set('highlighted', false);
+      feature.set('circleHighlight', false);
 
       currentlySelectedFeature = null;
       mapStore.clearSelectedUnit();
@@ -174,11 +183,11 @@ onMounted(() => {
 
     // Unselect previous
     if (currentlySelectedFeature) {
-      const baseStyle = currentlySelectedFeature.get('baseStyle');
-      if (baseStyle) {
-        currentlySelectedFeature.setStyle(baseStyle);
+      const initialStyle = currentlySelectedFeature.get('initialStyle');
+      if (initialStyle) {
+        currentlySelectedFeature.setStyle(initialStyle);
       }
-      currentlySelectedFeature.set('highlighted', false);
+      currentlySelectedFeature.set('circleHighlight', false);
     }
 
     // Select new
@@ -186,16 +195,16 @@ onMounted(() => {
     currentlySelectedFeature = feature;
 
     mapStore.setSelectedUnit(feature as Feature<Point>);
-    logStore.add(`Entity ${feature.get('callsign') || 'Unknown'} selected`);
+    logStore.add(`Entity ${feature.get('callsign')} selected`);
   });
 
   view.on('change:resolution', () => {
-    vectorSource.getFeatures().forEach((f) => {
-      if (f.get('highlighted')) {
+    vectorSource.getFeatures().forEach((feature) => {
+      if (feature.get('circleHighlight')) {
         const zoom = view.getZoom() || 13;
         const radius = Math.max(10, zoom * 5);
-        const baseStyle = f.get('baseStyle');
-        f.setStyle([
+        const initialStyle = feature.get('initialStyle');
+        feature.setStyle([
           new Style({
             image: new CircleStyle({
               radius,
@@ -207,7 +216,7 @@ onMounted(() => {
               }),
             }),
           }),
-          baseStyle,
+          initialStyle,
         ]);
       }
     });
