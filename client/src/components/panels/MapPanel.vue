@@ -25,6 +25,7 @@ const mapStore = useMapStore();
 
 let moveLineFeature: Feature<LineString> | null = null;
 let movePathCoordinates: number[][] = [];
+
 const vectorSource = new VectorSource();
 const vectorLayer = new VectorLayer({ source: vectorSource });
 
@@ -35,7 +36,7 @@ const createMap = () => {
     view: new View({ center: fromLonLat([21.2611, 48.7164]), zoom: 13 }),  
     controls: [],
   });
-
+  
   return { map };
 };
 
@@ -57,12 +58,6 @@ const createFeature = (
   feature.set('callsign', callsign);
   feature.set('affiliation', affiliation);
   return feature;
-};
-
-const createMoveLine = (start: number[], end: number[]) => {
-  const line = new Feature({ geometry: new LineString([start, end]) });
-  line.setStyle(new Style({ stroke: new Stroke({ color: 'orange', width: 2, lineDash: [6, 4] }) }));
-  return line;
 };
 
 const toggleCircleHighlight = (view: View, feature: Feature<Geometry>) => {
@@ -89,64 +84,117 @@ const toggleCircleHighlight = (view: View, feature: Feature<Geometry>) => {
   }
 };
 
+const onMoveUnitClick = (event: MapBrowserEvent, vectorSource: VectorSource, selectedFeature: Feature<Geometry>) => {
+  const geometry = selectedFeature.getGeometry();
+  if (!(geometry instanceof Point)) return;
+
+  const clickedPoint = event.coordinate;
+
+  if (movePathCoordinates.length === 0) {
+    movePathCoordinates.push(geometry.getCoordinates());
+  }
+
+  movePathCoordinates.push(clickedPoint);
+
+  if (moveLineFeature) {
+    vectorSource.removeFeature(moveLineFeature);
+  }
+
+  moveLineFeature = new Feature({
+    geometry: new LineString(movePathCoordinates),
+  });
+
+  moveLineFeature.setStyle(
+    new Style({
+      stroke: new Stroke({
+        color: 'orange',
+        width: 2,
+        lineDash: [6, 4],
+      }),
+    })
+  );
+
+  vectorSource.addFeature(moveLineFeature);
+  logStore.add(`Move command issued for ${selectedFeature.get('callsign')}`);
+};
+
+const clearSelection = (selectedFeature: { value: Feature<Geometry> | null }) => {
+  if (selectedFeature.value) {
+    const initialStyle = selectedFeature.value.get('initialStyle');
+    if (initialStyle) selectedFeature.value.setStyle(initialStyle);
+    selectedFeature.value.set('circleHighlight', false);
+    selectedFeature.value = null;
+  }
+
+  mapStore.clearSelectedUnit();
+};
+
+const resetMoveLine = (vectorSource: VectorSource) => {
+  movePathCoordinates = [];
+
+  if (moveLineFeature) {
+    vectorSource.removeFeature(moveLineFeature);
+    moveLineFeature = null;
+  }
+};
+
+const getClickedFeature = (map: Map, pixel: number[]) => {
+  let clickedFeature: Feature<Geometry> | undefined;
+
+  map.forEachFeatureAtPixel(
+    pixel,
+    (feature) => {
+      clickedFeature = feature as Feature<Geometry>;
+      return true;
+    },
+    { hitTolerance: 5 }
+  );
+
+  return clickedFeature;
+};
+
+const selectFeature = (
+  feature: Feature<Geometry>,
+  view: View,
+  selectedFeature: { value: Feature<Geometry> | null },
+  vectorSource: VectorSource
+) => {
+  if (selectedFeature.value) {
+    const prevStyle = selectedFeature.value.get('initialStyle');
+    if (prevStyle) selectedFeature.value.setStyle(prevStyle);
+    selectedFeature.value.set('circleHighlight', false);
+  }
+
+  toggleCircleHighlight(view, feature);
+  selectedFeature.value = feature;
+
+  resetMoveLine(vectorSource);
+
+  mapStore.setSelectedUnit(feature as Feature<Point>);
+  logStore.add(`Entity ${feature.get('callsign')} selected`);
+};
+
 const onMapClick = (
   event: MapBrowserEvent,
   map: Map,
   view: View,
   vectorSource: VectorSource,
   mapStore: ReturnType<typeof useMapStore>,
-  currentlySelectedFeature: { value: Feature<Geometry> | null }
+  selectedFeature: { value: Feature<Geometry> | null }
 ) => {
-  let clickedFeature: Feature<Geometry> | undefined;
-
-  if (mapStore.isMoveMode && currentlySelectedFeature.value) {
-    const geometry = currentlySelectedFeature.value.getGeometry();
-    if (!(geometry instanceof Point)) return;
-
-    const clickedPoint = event.coordinate;
-
-    if (movePathCoordinates.length === 0) {
-      const start = geometry.getCoordinates();
-      movePathCoordinates.push(start);
-    }
-
-    movePathCoordinates.push(clickedPoint);
-
-    if (moveLineFeature) {
-      vectorSource.removeFeature(moveLineFeature);
-    }
-
-    moveLineFeature = new Feature({ geometry: new LineString(movePathCoordinates) });
-    moveLineFeature.setStyle(
-      new Style({
-        stroke: new Stroke({ color: 'orange', width: 2, lineDash: [6, 4] }),
-      })
-    );
-
-    vectorSource.addFeature(moveLineFeature);
-    logStore.add(`Move command issued for ${currentlySelectedFeature.value.get('callsign')}`);
+  if (mapStore.isMoveMode && selectedFeature.value) {
+    onMoveUnitClick(event, vectorSource, selectedFeature.value);
     return;
   }
 
-  map.forEachFeatureAtPixel(event.pixel, (feature) => {
-    clickedFeature = feature as Feature<Geometry>;
-    return true;
-  }, { hitTolerance: 5 });
+  const feature = getClickedFeature(map, event.pixel);
 
-  if (!clickedFeature) {
+  if (!feature) {
     if (!mapStore.isOpen) {
-      if (currentlySelectedFeature.value) {
-        const initialStyle = currentlySelectedFeature.value.get('initialStyle');
-        if (initialStyle) currentlySelectedFeature.value.setStyle(initialStyle);
-        currentlySelectedFeature.value.set('circleHighlight', false);
-        currentlySelectedFeature.value = null;
-      }
-      mapStore.clearSelectedUnit();
+      clearSelection(selectedFeature);
     }
     return;
   }
-
-  const feature = clickedFeature;
 
   if (mapStore.isOpen) {
     toggleCircleHighlight(view, feature);
@@ -154,32 +202,12 @@ const onMapClick = (
     return;
   }
 
-  if (currentlySelectedFeature.value === feature) {
-    const initialStyle = feature.get('initialStyle');
-    if (initialStyle) feature.setStyle(initialStyle);
-    feature.set('circleHighlight', false);
-    currentlySelectedFeature.value = null;
-    mapStore.clearSelectedUnit();
+  if (selectedFeature.value === feature) {
+    clearSelection(selectedFeature);
     return;
   }
 
-  if (currentlySelectedFeature.value) {
-    const prevStyle = currentlySelectedFeature.value.get('initialStyle');
-    if (prevStyle) currentlySelectedFeature.value.setStyle(prevStyle);
-    currentlySelectedFeature.value.set('circleHighlight', false);
-  }
-
-  toggleCircleHighlight(view, feature);
-  currentlySelectedFeature.value = feature;
-
-  movePathCoordinates = [];
-  if (moveLineFeature) {
-    vectorSource.removeFeature(moveLineFeature);
-    moveLineFeature = null;
-  }
-
-  mapStore.setSelectedUnit(feature as Feature<Point>);
-  logStore.add(`Entity ${feature.get('callsign')} selected`);
+  selectFeature(feature, view, selectedFeature, vectorSource);
 };
 
 const onEscape = (event: KeyboardEvent) => {
